@@ -100,4 +100,9 @@ public class AudioManager : MonoBehaviour
             _footstepTimer = interval;
         }
     }
+
+    public AudioClip GetFireClip() => fireSound;
+    public AudioClip GetWalkClip() => walkSound;
+    public AudioClip GetRunClip() => runSound;
+    public AudioClip GetDeathClip() => deathSound;
 }

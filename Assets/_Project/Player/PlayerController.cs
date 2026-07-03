@@ -54,7 +54,7 @@ public class PlayerController : NetworkBehaviour
             foreach (var rend in
                 weaponMount.GetComponentsInChildren<Renderer>())
             {
-                rend.enabled = IsOwner;
+                rend.enabled = true;
             }
         }
     }
@@ -109,9 +109,14 @@ public class PlayerController : NetworkBehaviour
         _cc.Move(_velocity * Time.deltaTime);
 
         // Footsteps — only plays for the local player
-        bool isMoving = (Mathf.Abs(x) > 0.1f || Mathf.Abs(z) > 0.1f)
-                        && isGrounded;
-        AudioManager.Instance?.HandleFootsteps(isMoving, sprinting);
+        bool isMoving = (Mathf.Abs(x) > 0.1f || Mathf.Abs(z) > 0.1f) && isGrounded;
+        bool isSprinting = Input.GetKey(KeyCode.LeftShift);
+
+        AudioManager.Instance?.HandleFootsteps(isMoving, isSprinting);
+
+        // Sync to other clients via server
+        if (isMoving)
+            RequestFootstepServerRpc(isSprinting,transform.position);
     }
 
     // ── Called by WeaponController each shot ──────────────────────────────
@@ -127,9 +132,22 @@ public class PlayerController : NetworkBehaviour
     {
         // These are consumed each frame in HandleMouseLook
         // so this just ensures leftover recoil bleeds off
-        _recoilX = Mathf.Lerp(_recoilX, 0f,
-            Time.deltaTime * recoilRecoverySpeed);
-        _recoilY = Mathf.Lerp(_recoilY, 0f,
-            Time.deltaTime * recoilRecoverySpeed);
+        _recoilX = Mathf.Lerp(_recoilX, 0f, Time.deltaTime * recoilRecoverySpeed);
+        _recoilY = Mathf.Lerp(_recoilY, 0f, Time.deltaTime * recoilRecoverySpeed);
+    }
+    [ServerRpc]
+    private void RequestFootstepServerRpc(bool isSprinting,
+        Vector3 position)
+    {
+        PlayFootstepClientRpc(isSprinting, position);
+    }
+
+    [ClientRpc]
+    private void PlayFootstepClientRpc(bool isSprinting,Vector3 position)
+    {
+        if (IsOwner) return; // owner already plays locally above
+        AudioClip clip = isSprinting? AudioManager.Instance?.GetRunClip(): AudioManager.Instance?.GetWalkClip();
+        if (clip != null)
+            AudioSource.PlayClipAtPoint(clip, position, 0.5f);
     }
 }

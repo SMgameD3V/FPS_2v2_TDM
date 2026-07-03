@@ -47,16 +47,23 @@ public class Health : NetworkBehaviour
 
     private void HandleDeath(ulong killerClientId)
     {
-        // Notify score and kill feed
         ScoreManager.Instance.RecordKill(killerClientId, OwnerClientId);
-
-        // Play death sound only on the dying player's machine
-        if (IsOwner)
-            AudioManager.Instance?.PlayDeathSound();
-
         OnDied?.Invoke(killerClientId);
 
-        // Trigger 3-second respawn countdown on server
+        // Broadcast death sound + position to all clients
+        BroadcastDeathSoundClientRpc(transform.position);
+
         PlayerSpawner.Instance.RequestRespawn(OwnerClientId);
+    }
+
+    [ClientRpc]
+    private void BroadcastDeathSoundClientRpc(Vector3 position)
+    {
+        if (IsOwner)
+            // Owner hears it directly (2D)
+            AudioManager.Instance?.PlayDeathSound();
+        else
+            // Others hear it positionally (3D, quieter if far away)
+            AudioSource.PlayClipAtPoint(AudioManager.Instance?.GetDeathClip(),position, 0.8f);
     }
 }

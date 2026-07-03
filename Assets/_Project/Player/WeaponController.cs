@@ -8,29 +8,23 @@ public class WeaponController : NetworkBehaviour
     [SerializeField] private WeaponData weaponData;
 
     [Header("References")]
-    [SerializeField] private Transform firePoint;      // tip of the gun barrel
-    [SerializeField] private GameObject bulletPrefab;  // Bullet prefab with TrailRenderer
+    [SerializeField] private Transform firePoint;
+    [SerializeField] private GameObject bulletPrefab;
     [SerializeField] private GameObject muzzleFlashPrefab;
 
     [Header("Hit Detection")]
     [SerializeField] private LayerMask hitMask = ~0;
 
-    // Runtime ammo state
     private int _currentMag;
     private int _reserveAmmo;
     private float _nextFireTime;
     private bool _isReloading;
-
-    // Recoil pattern tracking
     private int _recoilIndex;
     private float _recoilResetTimer;
     private const float RecoilResetDelay = 0.4f;
 
-    // Events for HUD
     public event System.Action<int, int> OnAmmoChanged;
     public event System.Action OnReloadStarted;
-
-    // Public getters for HUD
     public int CurrentMag => _currentMag;
     public int ReserveAmmo => _reserveAmmo;
 
@@ -45,12 +39,10 @@ public class WeaponController : NetworkBehaviour
     {
         if (!IsOwner) return;
 
-        // Only allow shooting during Playing state
         if (NetworkGameManager.Instance != null &&
             NetworkGameManager.Instance.CurrentState != MatchState.Playing)
             return;
 
-        // Recoil pattern reset when player stops firing
         if (_recoilIndex > 0)
         {
             _recoilResetTimer -= Time.deltaTime;
@@ -78,77 +70,95 @@ public class WeaponController : NetworkBehaviour
         OnAmmoChanged?.Invoke(_currentMag, _reserveAmmo);
 
         ApplyRecoilPattern();
-        SpawnMuzzleFlash();
 
-        // Play fire sound on shooter's machine
-        AudioManager.Instance?.PlayFireSound();
-
-        Ray ray = Camera.main.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
-
-        // Default hit point if ray hits nothing — max range
+        Ray ray = Camera.main.ViewportPointToRay(
+            new Vector3(0.5f, 0.5f, 0));
         Vector3 hitPoint = ray.origin + ray.direction * 200f;
+        bool hitPlayer = false;
 
         if (Physics.Raycast(ray, out RaycastHit hit, 200f, hitMask))
         {
             hitPoint = hit.point;
-            FireServerRpc(hit.point, hit.normal);
+            hitPlayer = hit.collider
+                .GetComponentInParent<Health>() != null;
 
-            // Play hit sound based on what was hit
-            if (hit.collider.GetComponentInParent<Health>() != null)
-                AudioManager.Instance?.PlayPlayerHitSound();
-            else
-                AudioManager.Instance?.PlayEnvironmentHitSound();
+            // Send damage to server
+            FireServerRpc(hit.point, hit.normal);
         }
 
-        // Spawn visual bullet traveling toward hit point
-        SpawnBullet(hitPoint);
+        // Tell server to broadcast effects to ALL clients
+        RequestFireEffectsServerRpc(
+            firePoint.position,
+            hitPoint,
+            hitPlayer);
     }
 
-    // ── Spawn bullet prefab with TrailRenderer ────────────────────────────
-    private void SpawnBullet(Vector3 hitPoint)
+    // ── Server broadcasts fire effects to ALL clients ─────────────────────
+    [ServerRpc]
+    private void RequestFireEffectsServerRpc(
+        Vector3 fromPosition, Vector3 hitPoint, bool hitPlayer)
     {
-        if (bulletPrefab == null || firePoint == null) return;
+        PlayFireEffectsClientRpc(fromPosition, hitPoint, hitPlayer);
+    }
+
+    // ── ALL clients spawn bullet + flash + play fire sound ────────────────
+    [ClientRpc]
+    private void PlayFireEffectsClientRpc(
+        Vector3 fromPosition, Vector3 hitPoint, bool hitPlayer)
+    {
+        // Spawn bullet visual on every client
+        SpawnBullet(fromPosition, hitPoint);
+
+        // Spawn muzzle flash on every client
+        SpawnMuzzleFlash();
+
+        // Play fire sound on every client
+        // Use positional audio for other players, direct for owner
+        if (IsOwner)
+            AudioManager.Instance?.PlayFireSound();
+        else
+            PlaySoundAtPosition(
+                AudioManager.Instance?.GetFireClip(),
+                fromPosition);
+
+        // Play hit sound on every client
+        if (hitPlayer)
+            AudioManager.Instance?.PlayPlayerHitSound();
+        else
+            AudioManager.Instance?.PlayEnvironmentHitSound();
+    }
+
+    // ── Spawn bullet locally on this client ───────────────────────────────
+    private void SpawnBullet(Vector3 fromPosition, Vector3 hitPoint)
+    {
+        if (bulletPrefab == null) return;
 
         GameObject bullet = Instantiate(bulletPrefab,
-            firePoint.position, firePoint.rotation);
+            fromPosition, Quaternion.identity);
 
-        // Direction from barrel tip toward where the ray hit
-        Vector3 direction = (hitPoint - firePoint.position).normalized;
-
+        Vector3 direction = (hitPoint - fromPosition).normalized;
         bullet.GetComponent<BulletProjectile>()?.Initialize(direction);
     }
 
-    // ── Spawn muzzle flash at barrel tip facing bullet direction ──────────
+    // ── Spawn muzzle flash at firePoint ───────────────────────────────────
     void SpawnMuzzleFlash()
     {
         if (muzzleFlashPrefab == null || firePoint == null) return;
-
-        // firePoint.rotation makes the Cone particle system
-        // face the same direction as the gun barrel automatically
         GameObject flash = Instantiate(muzzleFlashPrefab,
-            firePoint.position,
-            firePoint.rotation,
-            firePoint);
-
+            firePoint.position, firePoint.rotation, firePoint);
         Destroy(flash, 0.15f);
     }
 
-    // ── Recoil pattern ────────────────────────────────────────────────────
-    void ApplyRecoilPattern()
+    // ── Play a sound at a world position (for other players' sounds) ──────
+    private void PlaySoundAtPosition(AudioClip clip, Vector3 position)
     {
-        if (weaponData.recoilPattern == null ||
-            weaponData.recoilPattern.Length == 0) return;
-
-        int idx = Mathf.Min(_recoilIndex, weaponData.recoilPattern.Length - 1);
-        Vector2 recoil = weaponData.recoilPattern[idx];
-
-        GetComponent<PlayerController>()?.AddRecoil(recoil);
-
-        _recoilIndex++;
-        _recoilResetTimer = RecoilResetDelay;
+        if (clip == null) return;
+        // AudioSource.PlayClipAtPoint plays a 3D sound at a world position
+        // so distant players hear it quieter — positional audio
+        AudioSource.PlayClipAtPoint(clip, position, 0.8f);
     }
 
-    // ── Server validates hit and applies damage ───────────────────────────
+    // ── Server applies damage ─────────────────────────────────────────────
     [ServerRpc]
     private void FireServerRpc(Vector3 hitPoint, Vector3 hitNormal)
     {
@@ -158,7 +168,6 @@ public class WeaponController : NetworkBehaviour
             var health = col.GetComponentInParent<Health>();
             if (health != null && col.transform.root != transform.root)
             {
-                // Friendly fire check
                 var targetTeam = col.GetComponentInParent<TeamMember>();
                 var myTeam = GetComponent<TeamMember>();
                 if (targetTeam != null && myTeam != null &&
@@ -170,13 +179,25 @@ public class WeaponController : NetworkBehaviour
         }
     }
 
-    // ── Reload coroutine ──────────────────────────────────────────────────
+    void ApplyRecoilPattern()
+    {
+        if (weaponData.recoilPattern == null ||
+            weaponData.recoilPattern.Length == 0) return;
+
+        int idx = Mathf.Min(_recoilIndex,
+            weaponData.recoilPattern.Length - 1);
+        Vector2 recoil = weaponData.recoilPattern[idx];
+
+        GetComponent<PlayerController>()?.AddRecoil(recoil);
+        _recoilIndex++;
+        _recoilResetTimer = RecoilResetDelay;
+    }
+
     private IEnumerator Reload()
     {
         _isReloading = true;
         OnReloadStarted?.Invoke();
         AudioManager.Instance?.PlayReloadSound();
-
         yield return new WaitForSeconds(weaponData.reloadTime);
 
         int needed = weaponData.magazineSize - _currentMag;
