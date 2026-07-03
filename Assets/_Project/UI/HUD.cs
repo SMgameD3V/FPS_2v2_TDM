@@ -23,14 +23,27 @@ public class HUD : MonoBehaviour
     void OnEnable()
     {
         TryHookLocalPlayer();
-        if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnScoreChanged += UpdateScores;
+        StartCoroutine(HookScoreManager());
+    }
+
+    private System.Collections.IEnumerator HookScoreManager()
+    {
+        // Wait until ScoreManager is ready (may not be spawned yet)
+        while (ScoreManager.Instance == null)
+            yield return null;
+
+        ScoreManager.Instance.OnScoreChanged += UpdateScores;
+        // Get current scores immediately
+        UpdateScores(ScoreManager.Instance.RedScore,
+                    ScoreManager.Instance.BlueScore);
     }
 
     void OnDisable()
     {
-        if (_playerHealth != null) _playerHealth.OnHealthChanged -= UpdateHealth;
-        if (_playerWeapon != null) _playerWeapon.OnAmmoChanged -= UpdateAmmo;
+        if (_playerHealth != null)
+            _playerHealth.OnHealthChanged -= UpdateHealth;
+        if (_playerWeapon != null)
+            _playerWeapon.OnAmmoChanged -= UpdateAmmo;
         if (ScoreManager.Instance != null)
             ScoreManager.Instance.OnScoreChanged -= UpdateScores;
         _hooked = false;
@@ -38,7 +51,13 @@ public class HUD : MonoBehaviour
 
     void Update()
     {
-        if (!_hooked) TryHookLocalPlayer();
+        // Keep checking for new PlayerObject after respawn
+        // (cheap check — only does work if PlayerObject changed)
+        if (!_hooked || NetworkManager.Singleton?.LocalClient?
+            .PlayerObject?.GetComponent<Health>() != _playerHealth)
+        {
+            TryHookLocalPlayer();
+        }
     }
 
     void TryHookLocalPlayer()
@@ -46,18 +65,37 @@ public class HUD : MonoBehaviour
         var localObj = NetworkManager.Singleton?.LocalClient?.PlayerObject;
         if (localObj == null) return;
 
-        _playerHealth = localObj.GetComponent<Health>();
-        _playerWeapon = localObj.GetComponent<WeaponController>();
+        var newHealth = localObj.GetComponent<Health>();
+        var newWeapon = localObj.GetComponent<WeaponController>();
 
-        if (_playerHealth == null || _playerWeapon == null) return;
+        // Only re-hook if the PlayerObject changed (new spawn after death)
+        if (newHealth == _playerHealth && _hooked) return;
 
-        _playerHealth.OnHealthChanged += UpdateHealth;
-        _playerWeapon.OnAmmoChanged += UpdateAmmo;
+        // Unsubscribe from old components (the dead player)
+        if (_playerHealth != null)
+            _playerHealth.OnHealthChanged -= UpdateHealth;
+        if (_playerWeapon != null)
+            _playerWeapon.OnAmmoChanged -= UpdateAmmo;
 
-        UpdateHealth(_playerHealth.CurrentHealth);
-        UpdateAmmo(_playerWeapon.CurrentMag, _playerWeapon.ReserveAmmo);
+        // Subscribe to new components (the fresh respawned player)
+        _playerHealth = newHealth;
+        _playerWeapon = newWeapon;
+
+        if (_playerHealth != null)
+        {
+            _playerHealth.OnHealthChanged += UpdateHealth;
+            // Show current health immediately
+            UpdateHealth(_playerHealth.CurrentHealth);
+        }
+        if (_playerWeapon != null)
+        {
+            _playerWeapon.OnAmmoChanged += UpdateAmmo;
+            UpdateAmmo(_playerWeapon.CurrentMag, _playerWeapon.ReserveAmmo);
+        }
+
         _hooked = true;
     }
+
 
     void UpdateHealth(int hp)
     {

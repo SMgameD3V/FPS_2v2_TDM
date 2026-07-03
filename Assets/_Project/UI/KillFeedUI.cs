@@ -20,10 +20,15 @@ public class KillFeedUI : MonoBehaviour
         Instance = this;
     }
 
-    public void AddKill(ulong killerClientId, ulong victimClientId, TeamType killerTeam)
+    // Now receives actual names instead of client IDs
+    public void AddKill(string killerName, string victimName,
+        TeamType killerTeam)
     {
-        string color = killerTeam == TeamType.Red ? "#FF4444" : "#4488FF";
-        string text = $"<color={color}>Player {killerClientId}</color> ✦ Player {victimClientId}";
+        string color = killerTeam == TeamType.Red
+            ? "#FF4444" : "#4488FF";
+
+        string text = $"<color={color}>{killerName}</color>" +
+                      $" ✦ {victimName}";
 
         if (_entries.Count >= maxEntries)
         {

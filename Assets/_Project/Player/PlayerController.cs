@@ -21,7 +21,7 @@ public class PlayerController : NetworkBehaviour
     private Vector3 _velocity;
     private float _xRotation;
 
-    // Recoil offsets — added on top of mouse input, decay over time
+    // Recoil applied per-shot, decays over time
     private float _recoilX;
     private float _recoilY;
 
@@ -30,6 +30,7 @@ public class PlayerController : NetworkBehaviour
         if (!IsOwner) return;
 
         Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
         if (Camera.main != null)
         {
@@ -39,11 +40,29 @@ public class PlayerController : NetworkBehaviour
         }
     }
 
-    void Awake() => _cc = GetComponent<CharacterController>();
+    void Awake()
+    {
+        _cc = GetComponent<CharacterController>();
+    }
+
+    void Start()
+    {
+        // Hide gun model for other players (first-person — only owner sees it)
+        var weaponMount = transform.Find("WeaponMount");
+        if (weaponMount != null)
+        {
+            foreach (var rend in
+                weaponMount.GetComponentsInChildren<Renderer>())
+            {
+                rend.enabled = IsOwner;
+            }
+        }
+    }
 
     void Update()
     {
-        if (!IsOwner) return; // CRITICAL — prevents controlling other players
+        // CRITICAL — only owner runs input
+        if (!IsOwner) return;
 
         HandleMouseLook();
         HandleMovement();
@@ -55,15 +74,17 @@ public class PlayerController : NetworkBehaviour
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-        // Combine mouse input with active recoil offset
+        // Vertical look — combine mouse input with recoil kick
         _xRotation -= mouseY;
-        _xRotation += _recoilY;          // recoil pushes view up
+        _xRotation += _recoilY; // recoil.y is negative so this goes UP
         _xRotation = Mathf.Clamp(_xRotation, -80f, 80f);
 
         cameraHolder.localRotation = Quaternion.Euler(_xRotation, 0f, 0f);
+
+        // Horizontal rotation — body turns with mouse + horizontal recoil
         transform.Rotate(Vector3.up * (mouseX + _recoilX));
 
-        // Consume the recoil this frame so it doesn't keep re-adding
+        // Consume recoil this frame so it doesn't stack infinitely
         _recoilY = 0f;
         _recoilX = 0f;
     }
@@ -71,7 +92,7 @@ public class PlayerController : NetworkBehaviour
     void HandleMovement()
     {
         bool isGrounded = _cc.isGrounded;
-        if (isGrounded && _velocity.y < 0) _velocity.y = -2f;
+        if (isGrounded && _velocity.y < 0f) _velocity.y = -2f;
 
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
@@ -86,22 +107,29 @@ public class PlayerController : NetworkBehaviour
 
         _velocity.y += gravity * Time.deltaTime;
         _cc.Move(_velocity * Time.deltaTime);
+
+        // Footsteps — only plays for the local player
+        bool isMoving = (Mathf.Abs(x) > 0.1f || Mathf.Abs(z) > 0.1f)
+                        && isGrounded;
+        AudioManager.Instance?.HandleFootsteps(isMoving, sprinting);
     }
 
-    private float _pendingRecoilX, _pendingRecoilY;
-
-    // Called by WeaponController each time a shot is fired
+    // ── Called by WeaponController each shot ──────────────────────────────
     public void AddRecoil(Vector2 recoil)
     {
-        // Apply instantly as a kick (felt immediately)
-        _recoilY += recoil.y;
+        // FIXED: negative Y so camera kicks UP not down
+        _recoilY -= recoil.y;
         _recoilX += recoil.x;
     }
 
+    // ── Smoothly returns view toward center between shots ─────────────────
     void DecayRecoil()
     {
-        // Smoothly returns view toward center between shots
-        _pendingRecoilX = Mathf.Lerp(_pendingRecoilX, 0f, Time.deltaTime * recoilRecoverySpeed);
-        _pendingRecoilY = Mathf.Lerp(_pendingRecoilY, 0f, Time.deltaTime * recoilRecoverySpeed);
+        // These are consumed each frame in HandleMouseLook
+        // so this just ensures leftover recoil bleeds off
+        _recoilX = Mathf.Lerp(_recoilX, 0f,
+            Time.deltaTime * recoilRecoverySpeed);
+        _recoilY = Mathf.Lerp(_recoilY, 0f,
+            Time.deltaTime * recoilRecoverySpeed);
     }
 }

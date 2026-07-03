@@ -11,12 +11,12 @@ public static class PlayerProfile
     {
         get
         {
-#if UNITY_EDITOR
-            bool isClone = ClonesManager.IsClone();
-            return isClone ? "player_username_clone" : "player_username";
-#else
-            return "player_username";
-#endif
+            #if UNITY_EDITOR
+                        bool isClone = ClonesManager.IsClone();
+                        return isClone ? "player_username_clone" : "player_username";
+            #else
+                        return "player_username";
+            #endif
         }
     }
 
@@ -24,14 +24,14 @@ public static class PlayerProfile
     {
         get
         {
-#if UNITY_EDITOR
-            bool isClone = ClonesManager.IsClone();
-            return isClone
-                ? "Player" + Random.Range(5000, 9999)
-                : "Player" + Random.Range(1000, 4999);
-#else
-            return "Player" + Random.Range(1000, 9999);
-#endif
+            #if UNITY_EDITOR
+                        bool isClone = ClonesManager.IsClone();
+                        return isClone
+                            ? "Player" + Random.Range(5000, 9999)
+                            : "Player" + Random.Range(1000, 4999);
+            #else
+                        return "Player" + Random.Range(1000, 9999);
+            #endif
         }
     }
 

@@ -29,17 +29,23 @@ public class PlayerSpawner : NetworkBehaviour
     public void SpawnPlayer(ulong clientId)
     {
         if (!IsServer) return;
-        Debug.Log($"[SPAWNER] SpawnPlayer called for client {clientId}");
 
         TeamType team = TeamManager.Instance.GetTeam(clientId);
         Transform spawnPoint = SpawnManager.Instance.GetSpawnPoint(team);
 
-        Debug.Log($"[SPAWNER] client={clientId} team={team} spawnPos={spawnPoint.position}");
+        Debug.Log($"[SPAWNER] Spawning client {clientId}" +
+                  $" | Team={team} | Pos={spawnPoint.position}");
 
         GameObject player = Instantiate(playerPrefab,
             spawnPoint.position, spawnPoint.rotation);
-        player.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId, true);
+
+        player.GetComponent<NetworkObject>()
+            .SpawnAsPlayerObject(clientId, true);
+
         _spawnedPlayers[clientId] = player;
+
+        // Tell that client to play respawn sound
+        NotifyRespawnClientRpc(clientId);
     }
 
     public void RequestRespawn(ulong clientId)
@@ -52,7 +58,8 @@ public class PlayerSpawner : NetworkBehaviour
     {
         yield return new WaitForSeconds(delay);
 
-        if (_spawnedPlayers.TryGetValue(clientId, out var old) && old != null)
+        if (_spawnedPlayers.TryGetValue(clientId, out var old) &&
+            old != null)
         {
             var netObj = old.GetComponent<NetworkObject>();
             if (netObj != null && netObj.IsSpawned)
@@ -61,6 +68,14 @@ public class PlayerSpawner : NetworkBehaviour
 
         if (NetworkGameManager.Instance.CurrentState == MatchState.Playing)
             SpawnPlayer(clientId);
+    }
+
+    // Tells the specific client to play their respawn sound
+    [ClientRpc]
+    private void NotifyRespawnClientRpc(ulong clientId)
+    {
+        if (NetworkManager.Singleton.LocalClientId == clientId)
+            AudioManager.Instance?.PlayRespawnSound();
     }
 
     public void RemovePlayer(ulong clientId)
