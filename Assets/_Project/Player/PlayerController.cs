@@ -1,5 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : NetworkBehaviour
@@ -27,6 +29,7 @@ public class PlayerController : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        StartCoroutine(EnableControllerAfterSpawn());
         if (!IsOwner) return;
 
         Cursor.lockState = CursorLockMode.Locked;
@@ -117,6 +120,15 @@ public class PlayerController : NetworkBehaviour
         // Sync to other clients via server
         if (isMoving)
             RequestFootstepServerRpc(isSprinting,transform.position);
+    }
+
+    private IEnumerator EnableControllerAfterSpawn()
+    {
+        _cc.enabled = false;
+        yield return null;
+        yield return null;
+        yield return null;
+        _cc.enabled = true;
     }
 
     // ── Called by WeaponController each shot ──────────────────────────────

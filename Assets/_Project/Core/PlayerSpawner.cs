@@ -30,22 +30,30 @@ public class PlayerSpawner : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        TeamType team = TeamManager.Instance.GetTeam(clientId);
-        Transform spawnPoint = SpawnManager.Instance.GetSpawnPoint(team);
+        // Step 1: Remove any existing tracked player for this client
+        if (_spawnedPlayers.TryGetValue(clientId, out var existing)
+            && existing != null)
+        {
+            var oldNet = existing.GetComponent<NetworkObject>();
+            if (oldNet != null && oldNet.IsSpawned)
+                oldNet.Despawn(true);
+            _spawnedPlayers.Remove(clientId);
+        }
 
-        Debug.Log($"[SPAWNER] Spawning client {clientId}" +
-                  $" | Team={team} | Pos={spawnPoint.position}");
+        // Step 2: Remove any NGO-assigned PlayerObject for this client
+        // This catches any auto-spawned object NGO created on connect
+        if (NetworkManager.Singleton.ConnectedClients
+            .TryGetValue(clientId, out var connectedClient))
+        {
+            if (connectedClient.PlayerObject != null
+                && connectedClient.PlayerObject.IsSpawned)
+            {
+                connectedClient.PlayerObject.Despawn(true);
+            }
+        }
 
-        GameObject player = Instantiate(playerPrefab,
-            spawnPoint.position, spawnPoint.rotation);
-
-        player.GetComponent<NetworkObject>()
-            .SpawnAsPlayerObject(clientId, true);
-
-        _spawnedPlayers[clientId] = player;
-
-        // Tell that client to play respawn sound
-        NotifyRespawnClientRpc(clientId);
+        // Step 3: Small delay then spawn at correct position
+        StartCoroutine(SpawnAfterCleanup(clientId));
     }
 
     public void RequestRespawn(ulong clientId)
@@ -82,5 +90,23 @@ public class PlayerSpawner : NetworkBehaviour
     {
         if (_spawnedPlayers.ContainsKey(clientId))
             _spawnedPlayers.Remove(clientId);
+    }
+
+    private IEnumerator SpawnAfterCleanup(ulong clientId)
+    {
+        // Wait 1 frame to ensure Despawn calls above complete
+        yield return null;
+
+        TeamType team = TeamManager.Instance.GetTeam(clientId);
+        Transform spawnPoint = SpawnManager.Instance.GetSpawnPoint(team);
+
+        GameObject player = Instantiate(playerPrefab,
+            spawnPoint.position, spawnPoint.rotation);
+
+        player.GetComponent<NetworkObject>()
+            .SpawnAsPlayerObject(clientId, true);
+
+        _spawnedPlayers[clientId] = player;
+        NotifyRespawnClientRpc(clientId);
     }
 }
