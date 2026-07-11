@@ -1,4 +1,4 @@
-# 🔫 2v2 FPS Team Deathmatch
+# 2v2 FPS Team Deathmatch
 
 <p align="center">
 
@@ -13,12 +13,12 @@
 A <b>2v2 online multiplayer FPS prototype</b> built using <b>Unity Netcode for GameObjects</b> and <b>Unity Gaming Services</b>, featuring team-based combat, lobby management, synchronized gameplay, and match progression.
 </p>
 
-> **🎮 Original Project**  
+> ** Original Project**  
 > This project was developed to explore multiplayer game development using Unity's networking ecosystem. It focuses on building the core systems required for a competitive online FPS experience, including lobby management, team spawning, synchronized gameplay, health, respawning, and score tracking.
 
 ---
 
-# 📖 Overview
+# Overview
 
 **2v2 FPS Team Deathmatch** is an online multiplayer first-person shooter prototype where players compete in team-based matches.
 
@@ -26,7 +26,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 
 ---
 
-# 📸 Screenshots
+# Screenshots
 
 <p align="center">
     <img src="Screenshots/MainMenu.png" width="450">
@@ -50,25 +50,25 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 
 ---
 
-# ✨ Features
+# Features
 
-- 🌐 Online Multiplayer Gameplay
-- 👥 2v2 Team Deathmatch
-- 🏠 Lobby Creation & Joining
-- 📡 Unity Relay Integration
-- 🔄 Network Synchronized Players
-- ❤️ Health & Respawn System
-- 🎯 Team-Based Spawning
-- 📈 Kill & Score Tracking
-- ⏱️ Match Timer
-- 🏆 Result Screen
-- 🎨 Multiplayer UI
+-  Online Multiplayer Gameplay
+-  2v2 Team Deathmatch
+-  Lobby Creation & Joining
+-  Unity Relay Integration
+-  Network Synchronized Players
+-  Health & Respawn System
+-  Team-Based Spawning
+-  Kill & Score Tracking
+-  Match Timer
+-  Result Screen
+-  Multiplayer UI
 
 ---
 
-# 🎯 Gameplay Systems
+# Gameplay Systems
 
-### 🎮 Player
+### Player
 
 - First-person movement
 - Shooting mechanics
@@ -76,7 +76,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 - Death & Respawn
 - Network synchronization
 
-### 🌐 Multiplayer
+### Multiplayer
 
 - Lobby creation
 - Lobby joining
@@ -85,7 +85,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 - Match synchronization
 - Player spawning
 
-### 🎯 Match Management
+### Match Management
 
 - Match timer
 - Team scoring
@@ -93,7 +93,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 - Win/Lose conditions
 - Result screen
 
-### 🖥️ User Interface
+### User Interface
 
 - Main Menu
 - Multiplayer Lobby
@@ -105,7 +105,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 
 ---
 
-# 🛠️ Technologies Used
+# Technologies Used
 
 | Category | Technologies |
 |----------|--------------|
@@ -118,7 +118,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 
 ---
 
-# 🎮 Controls
+# Controls
 
 | Action | Key |
 |--------|-----|
@@ -131,7 +131,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 
 ---
 
-# 📚 What I Learned
+# What I Learned
 
 - Multiplayer game architecture
 - Client-server networking concepts
@@ -144,7 +144,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 
 ---
 
-# 🚀 Future Improvements
+# Future Improvements
 
 - Weapon selection
 - Multiple maps
@@ -157,33 +157,7 @@ The project demonstrates the implementation of multiplayer gameplay systems usin
 
 ---
 
-# 📂 Project Structure
-
-```text
-Assets
-│
-├── _Project
-|   ├── Audio
-|   ├── Core
-|   ├── Health
-|   ├── Match
-|   ├── Material
-|   ├── Player
-|   ├── Prefabs
-|   ├── Scenes
-|   ├── Scriptable_Objects
-|   ├── Teams
-|   ├── UI
-|   ├── Weapons
-|
-├── Resources
-├── Settings
-├── TextMesh Pro
-```
-
----
-
-# 👨‍💻 My Role
+# My Role
 
 This project was developed independently.
 
@@ -200,5 +174,5 @@ This project was developed independently.
 ---
 
 <p align="center">
-⭐ If you found this project interesting, consider giving it a star!
+ If you found this project interesting, consider giving it a star!
 </p>
